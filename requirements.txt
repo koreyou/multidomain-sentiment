@@ -1,0 +1,5 @@
+six
+chainer==3.2.0
+dill
+joblib
+nltk
