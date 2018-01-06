@@ -93,7 +93,7 @@ def run(dataset, word2vec, epoch, frequency, gpu, out, model, batchsize, lr,
             dev_dataset, batchsize, repeat=False, shuffle=False)
 
         evaluator = extensions.Evaluator(
-            dev_iter, model, device=gpu,
+            dev_iter, classifier, device=gpu,
             converter=multidomain_sentiment.training.convert)
         trainer.extend(evaluator, trigger=(1, 'epoch'))
     else:
