@@ -64,16 +64,19 @@ class RNNEncoder(chainer.Chain):
         return concat_outputs
 
 
-class MultiDomainPredictor(chainer.Chain):
+class MultiDomainRNNPredictor(chainer.Chain):
     def __init__(self, n_vocab, emb_size, encoders, shared_encoder, n_units,
-                 n_class, initialEmb=None, dropout=0.1, fix_embedding=False):
-        super(MultiDomainPredictor, self).__init__()
+                 n_class, initialEmb=None, dropout_emb=0.1,
+                 dropout_fc=0.1, fix_embedding=False):
+        super(MultiDomainRNNPredictor, self).__init__()
         if initialEmb is None: initialEmb = embed_init
         l1_in_units = encoders[0].out_units + shared_encoder.out_units
-        self.dropout = dropout
+        self.dropout_emb = dropout_emb
+        self.dropout_fc = dropout_fc
         self.fix_embedding = fix_embedding
         with self.init_scope():
-            self.embed = L.EmbedID(n_vocab, emb_size, initialW=initialEmb)
+            self.embed = L.EmbedID(
+                n_vocab, emb_size, initialW=initialEmb, ignore_label=-1)
             self.encoders = encoders
             self.shared_encoder = shared_encoder
             self.l1 = L.Linear(l1_in_units, n_units)
@@ -81,9 +84,7 @@ class MultiDomainPredictor(chainer.Chain):
 
     def __call__(self, xs, domains):
         assert self.xp.max(domains) < len(self.encoders)
-        #o_e = chainer.Variable(
-        #    self.xp.empty((len(xs), self.encoders[0].out_units), dtype=self.xp.float32))
-        exs = sequence_embed(self.embed, xs, self.dropout)
+        exs = sequence_embed(self.embed, xs, self.dropout_emb)
         if self.fix_embedding:
             for i in six.moves.xrange(len(exs)):
                 exs[i].unchain_backward()
@@ -98,20 +99,23 @@ class MultiDomainPredictor(chainer.Chain):
             y_k = F.split_axis(y_k, len(y_k), 0)
             for i, y in six.moves.zip(domain_mask, y_k):
                 o_e[i] = y
-            #o_e = F.where(domain_mask, y_k, o_e)
         o_e = F.vstack(o_e)
         o_s = self.shared_encoder(exs)
         o = F.hstack((o_e, o_s))
+        if self.dropout_fc > 0.:
+            o = F.dropout(o, self.dropout_fc)
         o = F.tanh(self.l1(o))
         return self.l2(o)
 
 
-def create_multi_domain_predictor(
+def create_rnn_predictor(
         k, n_vocab, emb_size, fc_units, n_class, n_layers, rnn_units,
-        dropout_rnn=0.1, initialEmb=None, dropout_emb=0.1, fix_embedding=False):
+        dropout_rnn=0.1, initialEmb=None, dropout_emb=0.1, fix_embedding=False,
+        dropout_fc=0.0):
     encoders = [RNNEncoder(n_layers, rnn_units, dropout=dropout_rnn)
                 for _ in six.moves.xrange(k)]
     shared_encoder = RNNEncoder(n_layers, rnn_units, dropout=dropout_rnn)
-    return MultiDomainPredictor(
+    return MultiDomainRNNPredictor(
         n_vocab, emb_size, encoders, shared_encoder, fc_units, n_class,
-        initialEmb=initialEmb, dropout=dropout_emb, fix_embedding=fix_embedding)
+        initialEmb=initialEmb, dropout_emb=dropout_emb, dropout_fc=dropout_fc,
+        fix_embedding=fix_embedding)

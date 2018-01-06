@@ -31,14 +31,15 @@ logger = logging.getLogger(__name__)
               help='GPU ID (negative value indicates CPU)')
 @click.option('--out', '-o', default='result',
               help='Directory to output the result and temporaly file')
-@click.option('--batchsize', '-b', type=int, default=50,
+@click.option('--model', default='cnn', type=click.Choice(["cnn", "rnn"]))
+@click.option('--batchsize', '-b', type=int, default=300,
               help='Number of images in each mini-batch')
 @click.option('--lr', type=float, default=0.001, help='Learning rate')
 @click.option('--fix_embedding', type=bool, default=False,
               help='Fix word embedding during training')
 @click.option('--resume', '-r', default='',
               help='Resume the training from snapshot')
-def run(dataset, word2vec, epoch, frequency, gpu, out, batchsize, lr,
+def run(dataset, word2vec, epoch, frequency, gpu, out, model, batchsize, lr,
         fix_embedding, resume):
     """
     Train multi-domain user review classification using Blitzer et al.'s dataset
@@ -49,11 +50,21 @@ def run(dataset, word2vec, epoch, frequency, gpu, out, batchsize, lr,
     memory = Memory(cachedir=out, verbose=1)
     w2v, vocab, train_dataset, dev_dataset, _, label_dict, domain_dict = \
         memory.cache(prepare_blitzer_data)(dataset, word2vec)
-    model = multidomain_sentiment.models.create_multi_domain_predictor(
-        len(domain_dict), w2v.shape[0], w2v.shape[1], 300, len(label_dict),
-        2, 300, dropout_rnn=0.1, initialEmb=w2v, dropout_emb=0.1,
-        fix_embedding=fix_embedding
-    )
+    if model == 'rnn':
+        model = multidomain_sentiment.models.create_rnn_predictor(
+            len(domain_dict), w2v.shape[0], w2v.shape[1], 300, len(label_dict),
+            2, 300, dropout_rnn=0.1, initialEmb=w2v, dropout_emb=0.1,
+            fix_embedding=fix_embedding
+        )
+    elif model == 'cnn':
+        model = multidomain_sentiment.models.create_cnn_predictor(
+            len(domain_dict), w2v.shape[0], w2v.shape[1], 300, len(label_dict),
+            300, dropout_fc=0.1, initialEmb=w2v, dropout_emb=0.1,
+            fix_embedding=fix_embedding
+        )
+    else:
+        assert not "should not get here"
+
     classifier = multidomain_sentiment.models.MultiDomainClassifier(
         model, domain_dict=domain_dict)
 
