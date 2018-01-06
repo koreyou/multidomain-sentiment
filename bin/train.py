@@ -14,13 +14,15 @@ from chainer.training import extensions
 from joblib import Memory
 
 import multidomain_sentiment
-from multidomain_sentiment.dataset import prepare_amazon_review_dataset
+from multidomain_sentiment.dataset.blitzer import prepare_blitzer_data
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 @click.command()
+@click.argument('dataset', type=click.Path(exists=True))
+@click.argument('word2vec', type=click.Path(exists=True))
 @click.option('--epoch', '-e', type=int, default=15,
               help='Number of sweeps over the dataset to train')
 @click.option('--frequency', '-f', type=int, default=500,
@@ -29,14 +31,6 @@ logger = logging.getLogger(__name__)
               help='GPU ID (negative value indicates CPU)')
 @click.option('--out', '-o', default='result',
               help='Directory to output the result and temporaly file')
-@click.option('--word2vec', required=True, type=click.Path(exists=True),
-              help='Word2vec pretrained file path')
-@click.option('--train', '-t', multiple=True,
-              type=(six.text_type, click.Path(exists=True)),
-              help='Pairs of domain:path')
-@click.option('--dev', '-d', multiple=True,
-              type=(six.text_type, click.Path(exists=True)),
-              help='Pairs of domain:path')
 @click.option('--batchsize', '-b', type=int, default=50,
               help='Number of images in each mini-batch')
 @click.option('--lr', type=float, default=0.001, help='Learning rate')
@@ -44,11 +38,17 @@ logger = logging.getLogger(__name__)
               help='Fix word embedding during training')
 @click.option('--resume', '-r', default='',
               help='Resume the training from snapshot')
-def run(epoch, frequency, gpu, out, word2vec, train, dev,
-        batchsize, lr, fix_embedding, resume):
+def run(dataset, word2vec, epoch, frequency, gpu, out, batchsize, lr,
+        fix_embedding, resume):
+    """
+    Train multi-domain user review classification using Blitzer et al.'s dataset
+    (https://www.cs.jhu.edu/~mdredze/datasets/sentiment/)
+
+    Please refer README.md for details.
+    """
     memory = Memory(cachedir=out, verbose=1)
-    w2v, vocab, train_dataset, dev_dataset, label_dict, domain_dict = \
-        memory.cache(prepare_amazon_review_dataset)(train, dev, word2vec)
+    w2v, vocab, train_dataset, dev_dataset, _, label_dict, domain_dict = \
+        memory.cache(prepare_blitzer_data)(dataset, word2vec)
     model = multidomain_sentiment.models.create_multi_domain_predictor(
         len(domain_dict), w2v.shape[0], w2v.shape[1], 300, len(label_dict),
         2, 300, dropout_rnn=0.1, initialEmb=w2v, dropout_emb=0.1,

@@ -1,4 +1,15 @@
 # -*- coding: utf-8 -*-
+"""
+Module that loads data distributed at http://jmcauley.ucsd.edu/data/amazon/
+
+The dataset was presented on the following papers:
+
+R. He, J. McAuley. 2016. Ups and downs: Modeling the visual evolution of fashion
+trends with one-class collaborative filtering. WWW.
+
+J. McAuley, C. Targett, J. Shi, A. van den Hengel. 2015. Image-based
+recommendations on styles and substitutes. SIGIR.
+"""
 from __future__ import absolute_import, division, print_function, \
     unicode_literals
 
@@ -11,34 +22,12 @@ import six
 nltk.download(info_or_id='punkt')  # need it before importing nltk.tokenize
 
 import numpy as np
-from chainer.datasets import DictDataset
 from nltk.tokenize import word_tokenize
 
 from multidomain_sentiment.word_embedding import load_word_embedding
+from multidomain_sentiment.dataset.common import create_dataset
 
 logger = logging.getLogger(__name__)
-
-
-
-def create_dataset(texts, labels, domains, size=-1):
-
-    if size > 0:
-        # Sample data AFTER all data has been loaded. This is because
-        # There might be bias in data ordering.
-        ind = np.random.permutation(len(texts))[:size]
-        if labels is None:
-            return DictDataset(
-                xs=[texts[i] for i in ind],
-                domains=[domains[i] for i in ind])
-        else:
-            return DictDataset(
-                xs=[texts[i] for i in ind], ys=[labels[i] for i in ind],
-                domains=[domains[i] for i in ind])
-    else:
-        if labels is None:
-            return DictDataset(xs=texts, domains=domains)
-        else:
-            return DictDataset(xs=texts, ys=labels, domains=domains)
 
 
 def read_amazon_reviews(
@@ -61,7 +50,7 @@ def read_amazon_reviews(
     return create_dataset(texts, labels, domains), domain_dict
 
 
-def prepare_amazon_review_dataset(train_paths, test_paths, word2vec_path):
+def prepare_mcauley_data(train_paths, test_paths, word2vec_path):
     logger.info("Preparing data")
 
     label_dict, label_inv_dict = get_sentiment_label_dict()
