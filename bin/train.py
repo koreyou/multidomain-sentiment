@@ -107,10 +107,10 @@ def run(dataset, word2vec, epoch, frequency, gpu, out, model, batchsize, lr,
         # ParameterStatistics does not work with GPU as of chainer 2.x
         # https://github.com/chainer/chainer/issues/3027
         trainer.extend(extensions.ParameterStatistics(
-            model, trigger=(10, 'iteration')))
+            model, trigger=(100, 'iteration')))
 
-    # Write a log of evaluation statistics for each epoch
-    trainer.extend(extensions.LogReport(trigger=(10, 'iteration')))
+    # Write a log of evaluation statistics for each iteration
+    trainer.extend(extensions.LogReport(trigger=(1, 'iteration')))
 
     # Print a progress bar to stdout
     trainer.extend(extensions.ProgressBar())
