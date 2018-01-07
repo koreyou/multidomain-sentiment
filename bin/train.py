@@ -15,6 +15,7 @@ from joblib import Memory
 
 import multidomain_sentiment
 from multidomain_sentiment.dataset.blitzer import prepare_blitzer_data
+from multidomain_sentiment.training import SaveRestore, EarlyStoppingTrigger
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -25,8 +26,9 @@ logger = logging.getLogger(__name__)
 @click.argument('word2vec', type=click.Path(exists=True))
 @click.option('--epoch', '-e', type=int, default=15,
               help='Number of sweeps over the dataset to train')
-@click.option('--frequency', '-f', type=int, default=500,
-              help='Frequency of taking a snapshot (in iterations)')
+@click.option('--frequency', '-f', default=[1, 'epoch'],
+              type=(int, click.Choice(['epoch', 'iteration'])),
+              help='Frequency of taking a snapshot')
 @click.option('--gpu', '-g', type=int, default=-1,
               help='GPU ID (negative value indicates CPU)')
 @click.option('--out', '-o', default='result',
@@ -83,9 +85,12 @@ def run(dataset, word2vec, epoch, frequency, gpu, out, model, batchsize, lr,
     updater = training.StandardUpdater(
         train_iter, optimizer, device=gpu,
         converter=multidomain_sentiment.training.convert)
-    trainer = training.Trainer(updater, (epoch, 'epoch'), out=out)
 
     if dev_dataset is not None:
+        stop_trigger = EarlyStoppingTrigger(
+            monitor='validation/main/loss', max_trigger=(epoch, 'epoch'))
+        trainer = training.Trainer(updater, stop_trigger, out=out)
+
         logger.info("train: {},  dev: {}".format(
             len(train_dataset), len(dev_dataset)))
         # Evaluate the model with the development dataset for each epoch
@@ -95,31 +100,38 @@ def run(dataset, word2vec, epoch, frequency, gpu, out, model, batchsize, lr,
         evaluator = extensions.Evaluator(
             dev_iter, classifier, device=gpu,
             converter=multidomain_sentiment.training.convert)
-        trainer.extend(evaluator, trigger=(1, 'epoch'))
+        trainer.extend(evaluator, trigger=frequency)
+        # This works together with EarlyStoppingTrigger to provide more reliable
+        # early stopping
+        trainer.extend(
+            SaveRestore(),
+            trigger=chainer.training.triggers.MinValueTrigger(
+                'validation/main/loss'))
     else:
+        trainer = training.Trainer(updater, (epoch, 'epoch'), out=out)
         logger.info("train: {}".format(len(train_dataset)))
+        # SaveRestore will save the snapshot when dev_dataset is available
+        trainer.extend(extensions.snapshot(), trigger=frequency)
 
     logger.info("With labels: %s" % json.dumps(label_dict))
     # Take a snapshot for each specified epoch
-    trigger = (epoch, 'epoch') if frequency == -1 else (frequency, 'iteration')
-    trainer.extend(extensions.snapshot(), trigger=trigger)
     if gpu < 0:
         # ParameterStatistics does not work with GPU as of chainer 2.x
         # https://github.com/chainer/chainer/issues/3027
         trainer.extend(extensions.ParameterStatistics(
-            model, trigger=(100, 'iteration')))
+            model, trigger=(100, 'iteration')), priority=99)
 
     # Write a log of evaluation statistics for each iteration
-    trainer.extend(extensions.LogReport(trigger=(1, 'iteration')))
-
-    # Print a progress bar to stdout
-    trainer.extend(extensions.ProgressBar())
+    trainer.extend(extensions.LogReport(trigger=(1, 'iteration')), priority=98)
+    trainer.extend(extensions.PrintReport(
+        ['epoch', 'main/loss', 'validation/main/loss', 'main/accuracy',
+         'validation/main/accuracy']), trigger=frequency, priority=97)
 
     if resume:
         # Resume from a snapshot
         chainer.serializers.load_npz(resume, trainer)
 
-    # Run the training
+    logger.info("Started training")
     trainer.run()
 
     # Save final model (without trainer)
