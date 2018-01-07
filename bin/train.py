@@ -135,7 +135,7 @@ def run(dataset, word2vec, epoch, frequency, gpu, out, model, batchsize, lr,
     trainer.run()
 
     # Save final model (without trainer)
-    model.save(os.path.join(out, 'trained_model'))
+    chainer.serializers.save_npz(model, os.path.join(out, 'trained_model'))
     with open(os.path.join(out, 'vocab.json'), 'wb') as fout:
         json.dump(vocab, fout)
 
