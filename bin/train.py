@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 @click.option('--model', default='cnn', type=click.Choice(["cnn", "rnn"]))
 @click.option('--batchsize', '-b', type=int, default=300,
               help='Number of images in each mini-batch')
-@click.option('--lr', type=float, default=0.001, help='Learning rate')
+@click.option('--lr', type=float, default=0.0002, help='Learning rate')
 @click.option('--fix_embedding', type=bool, default=False,
               help='Fix word embedding during training')
 @click.option('--resume', '-r', default='',
