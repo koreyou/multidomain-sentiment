@@ -62,6 +62,7 @@ class CNNEncoder(chainer.Chain):
         h_w4 = F.max(self.cnn_w4(exs), axis=2)
         h_w5 = F.max(self.cnn_w5(exs), axis=2)
         h = F.concat([h_w3, h_w4, h_w5], axis=1)
+        h = F.squeeze(h, 2)
         h = F.relu(h)
         return h
 
@@ -76,6 +77,7 @@ class MultiDomainCNNPredictor(chainer.Chain):
         self.dropout_emb = dropout_emb
         self.dropout_fc = dropout_fc
         self.fix_embedding = fix_embedding
+        self.n_class = n_class
         with self.init_scope():
             self.embed = L.EmbedID(
                 n_vocab, emb_size, initialW=initialEmb, ignore_label=-1)
@@ -107,7 +109,7 @@ class MultiDomainCNNPredictor(chainer.Chain):
         if self.dropout_fc > 0.:
             o = F.dropout(o, self.dropout_fc)
         o = F.relu(self.l1(o))
-        return self.l2(o)
+        return self.l2(o), o_s
 
 
 def create_cnn_predictor(

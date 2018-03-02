@@ -1,5 +1,6 @@
 
 from multidomain_sentiment.models.classifier import MultiDomainClassifier
+from multidomain_sentiment.models.classifier import AdversarialMultiDomainClassifier
 from multidomain_sentiment.models.cnn import CNNEncoder
 from multidomain_sentiment.models.cnn import MultiDomainCNNPredictor
 from multidomain_sentiment.models.cnn import create_cnn_predictor

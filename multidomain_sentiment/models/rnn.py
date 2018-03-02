@@ -74,6 +74,7 @@ class MultiDomainRNNPredictor(chainer.Chain):
         self.dropout_emb = dropout_emb
         self.dropout_fc = dropout_fc
         self.fix_embedding = fix_embedding
+        self.n_class = n_class
         with self.init_scope():
             self.embed = L.EmbedID(
                 n_vocab, emb_size, initialW=initialEmb, ignore_label=-1)
@@ -105,7 +106,7 @@ class MultiDomainRNNPredictor(chainer.Chain):
         if self.dropout_fc > 0.:
             o = F.dropout(o, self.dropout_fc)
         o = F.tanh(self.l1(o))
-        return self.l2(o)
+        return self.l2(o), o_s
 
 
 def create_rnn_predictor(

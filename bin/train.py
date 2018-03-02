@@ -67,8 +67,8 @@ def run(dataset, word2vec, epoch, frequency, gpu, out, model, batchsize, lr,
     else:
         assert not "should not get here"
 
-    classifier = multidomain_sentiment.models.MultiDomainClassifier(
-        model, domain_dict=domain_dict)
+    classifier = multidomain_sentiment.models.AdversarialMultiDomainClassifier(
+        model, len(domain_dict), domain_dict=domain_dict)
 
     if gpu >= 0:
         # Make a specified GPU current
